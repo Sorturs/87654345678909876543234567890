@@ -895,7 +895,7 @@
       document.getElementById('missionTitle').innerText = m.title;
       document.getElementById('missionProblemText').innerHTML = m.problem;
       document.getElementById('hintBox').innerHTML = m.hint;
-      document.getElementById('equationHintBadge').innerText = `${m.fields.length} Answer${m.fields.length > 1 ? 's' : ''} Needed`;
+      document.getElementById('equationHintBadge').innerText = `${m.equations.length} Eq + ${m.fields.length} Solution${m.fields.length > 1 ? 's' : ''}`;
       
       // Hide hint by default
       document.getElementById('hintBox').classList.add('hidden');
@@ -909,34 +909,140 @@
       // Render Visual Diagram
       renderDiagram(m);
 
-      // Render Solution Inputs
+      // Render Step 1: Equation Typer Inputs
+      const eqCont = document.getElementById('equationsInputsContainer');
+      eqCont.innerHTML = '';
+      m.equations.forEach((eq, idx) => {
+        const wrap = document.createElement('div');
+        wrap.className = 'flex flex-col gap-1';
+        wrap.innerHTML = `
+          <label for="${eq.id}" class="text-xs font-semibold text-slate-300 flex items-center justify-between">
+            <span>${eq.label}</span>
+            <span id="${eq.id}_badge" class="text-[10px] font-mono-math text-slate-500">Required</span>
+          </label>
+          <div class="relative">
+            <input 
+              type="text" 
+              id="${eq.id}" 
+              placeholder="${eq.placeholder}" 
+              required
+              autocomplete="off"
+              spellcheck="false"
+              onfocus="setActiveEquationInput('${eq.id}', ${idx + 1})"
+              oninput="handleLiveEquationCheck('${eq.id}', ${idx})"
+              class="w-full bg-slate-900 border border-slate-700/80 rounded-lg px-3.5 py-2.5 text-cyan-300 font-mono-math text-sm focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all shadow-inner"
+            >
+            <div id="${eq.id}_icon" class="absolute right-3 top-2.5 text-base hidden"></div>
+          </div>
+        `;
+        eqCont.appendChild(wrap);
+      });
+
+      // Default active typing input
+      currentActiveEquationInputId = m.equations[0].id;
+      document.getElementById('activeInputIndicator').innerText = "Typing: Equation 1";
+
+      // Render Step 2: Solution Numeric Inputs
       const formCont = document.getElementById('inputsContainer');
       formCont.innerHTML = '';
       m.fields.forEach(field => {
         const wrap = document.createElement('div');
-        wrap.className = 'flex flex-col gap-1.5';
+        wrap.className = 'flex flex-col gap-1';
         wrap.innerHTML = `
-          <label for="${field.id}" class="text-xs sm:text-sm font-semibold text-slate-300 flex items-center justify-between">
+          <label for="${field.id}" class="text-xs font-semibold text-slate-300 flex items-center justify-between">
             <span>${field.label}</span>
-            <span class="text-[11px] text-slate-500 font-mono-math">Numeric value</span>
+            <span class="text-[10px] text-slate-500 font-mono-math">Numeric value</span>
           </label>
-          <div class="relative">
-            <input 
-              type="number" 
-              step="any"
-              id="${field.id}" 
-              placeholder="${field.placeholder}" 
-              required
-              class="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-4 py-3 text-slate-100 font-mono-math text-base focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all shadow-inner"
-            >
-            <div id="${field.id}_status" class="absolute right-3 top-3.5 hidden"></div>
-          </div>
+          <input 
+            type="number" 
+            step="any"
+            id="${field.id}" 
+            placeholder="${field.placeholder}" 
+            required
+            class="w-full bg-slate-900 border border-slate-700/80 rounded-lg px-3.5 py-2 text-slate-100 font-mono-math text-sm focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 transition-all shadow-inner"
+          >
         `;
         formCont.appendChild(wrap);
       });
 
       updateHUD();
       playSound('click');
+    }
+
+    /* Track active equation input for on-screen keypad clicks */
+    function setActiveEquationInput(id, num) {
+      currentActiveEquationInputId = id;
+      document.getElementById('activeInputIndicator').innerText = `Typing: Equation ${num}`;
+    }
+
+    function insertSymbol(sym) {
+      if (!currentActiveEquationInputId) {
+        currentActiveEquationInputId = missions[currentMissionIndex].equations[0].id;
+      }
+      const el = document.getElementById(currentActiveEquationInputId);
+      if (!el) return;
+      
+      const start = el.selectionStart || el.value.length;
+      const end = el.selectionEnd || el.value.length;
+      const text = el.value;
+      el.value = text.substring(0, start) + sym + text.substring(end);
+      el.focus();
+      const newPos = start + sym.length;
+      el.setSelectionRange(newPos, newPos);
+
+      // Trigger live check
+      const eqIdx = missions[currentMissionIndex].equations.findIndex(e => e.id === currentActiveEquationInputId);
+      if (eqIdx !== -1) handleLiveEquationCheck(currentActiveEquationInputId, eqIdx);
+      playSound('click');
+    }
+
+    function backspaceSymbol() {
+      if (!currentActiveEquationInputId) return;
+      const el = document.getElementById(currentActiveEquationInputId);
+      if (!el) return;
+      const start = el.selectionStart || el.value.length;
+      const end = el.selectionEnd || el.value.length;
+      if (start === end && start > 0) {
+        el.value = el.value.substring(0, start - 1) + el.value.substring(end);
+        el.setSelectionRange(start - 1, start - 1);
+      } else if (start !== end) {
+        el.value = el.value.substring(0, start) + el.value.substring(end);
+        el.setSelectionRange(start, start);
+      }
+      el.focus();
+      const eqIdx = missions[currentMissionIndex].equations.findIndex(e => e.id === currentActiveEquationInputId);
+      if (eqIdx !== -1) handleLiveEquationCheck(currentActiveEquationInputId, eqIdx);
+    }
+
+    /* Real-time check while typing */
+    function handleLiveEquationCheck(inputId, eqIdx) {
+      const el = document.getElementById(inputId);
+      const icon = document.getElementById(`${inputId}_icon`);
+      const badge = document.getElementById(`${inputId}_badge`);
+      const m = missions[currentMissionIndex];
+      const targetEq = m.equations[eqIdx];
+
+      const res = validateUserEquation(el.value, targetEq);
+      icon.classList.remove('hidden');
+
+      if (res.valid) {
+        icon.innerHTML = '<i class="ph-bold ph-check-circle text-emerald-400"></i>';
+        badge.className = 'text-[10px] font-mono-math text-emerald-400 font-bold';
+        badge.innerText = 'Valid ✓';
+        el.classList.add('border-emerald-500');
+        el.classList.remove('border-rose-500');
+      } else {
+        if (el.value.trim().length > 2) {
+          icon.innerHTML = '<i class="ph-bold ph-circle-dashed text-slate-500"></i>';
+          badge.className = 'text-[10px] font-mono-math text-slate-400';
+          badge.innerText = 'Drafting...';
+        } else {
+          icon.classList.add('hidden');
+          badge.className = 'text-[10px] font-mono-math text-slate-500';
+          badge.innerText = 'Required';
+        }
+        el.classList.remove('border-emerald-500');
+      }
     }
 
     function toggleHint() {
@@ -954,6 +1060,20 @@
 
     function clearInputs() {
       const m = missions[currentMissionIndex];
+      m.equations.forEach(eq => {
+        const inp = document.getElementById(eq.id);
+        if (inp) {
+          inp.value = '';
+          const icon = document.getElementById(`${eq.id}_icon`);
+          if (icon) icon.classList.add('hidden');
+          const badge = document.getElementById(`${eq.id}_badge`);
+          if (badge) {
+            badge.className = 'text-[10px] font-mono-math text-slate-500';
+            badge.innerText = 'Required';
+          }
+          inp.classList.remove('border-emerald-500', 'border-rose-500');
+        }
+      });
       m.fields.forEach(f => {
         const inp = document.getElementById(f.id);
         if (inp) inp.value = '';
@@ -967,27 +1087,52 @@
     function handleAnswerSubmit(e) {
       e.preventDefault();
       const m = missions[currentMissionIndex];
-      let allCorrect = true;
-      let userValues = {};
-
-      m.fields.forEach(field => {
-        const el = document.getElementById(field.id);
-        const val = parseFloat(el.value);
-        userValues[field.id] = val;
-        // Check with small floating point tolerance
-        const isFieldCorrect = Math.abs(val - field.correct) < 0.01;
-        if (!isFieldCorrect) {
-          allCorrect = false;
-        }
-      });
-
       const banner = document.getElementById('feedbackBanner');
       banner.classList.remove('hidden');
 
-      if (allCorrect) {
-        // Success
+      // 1. Verify Typed Equations
+      let equationsCorrect = true;
+      let eqFailMessages = [];
+
+      m.equations.forEach((eq, idx) => {
+        const inp = document.getElementById(eq.id);
+        const val = inp.value.trim();
+        const check = validateUserEquation(val, eq);
+        const icon = document.getElementById(`${eq.id}_icon`);
+        const badge = document.getElementById(`${eq.id}_badge`);
+
+        icon.classList.remove('hidden');
+        if (!check.valid) {
+          equationsCorrect = false;
+          icon.innerHTML = '<i class="ph-bold ph-x-circle text-rose-400"></i>';
+          badge.className = 'text-[10px] font-mono-math text-rose-400 font-bold';
+          badge.innerText = 'Check Eq';
+          inp.classList.add('border-rose-500');
+          inp.classList.remove('border-emerald-500');
+          eqFailMessages.push(`Equation (${idx + 1}): ${check.reason} (Expected model: ${eq.canonical})`);
+        } else {
+          icon.innerHTML = '<i class="ph-bold ph-check-circle text-emerald-400"></i>';
+          badge.className = 'text-[10px] font-mono-math text-emerald-400 font-bold';
+          badge.innerText = 'Valid ✓';
+          inp.classList.add('border-emerald-500');
+          inp.classList.remove('border-rose-500');
+        }
+      });
+
+      // 2. Verify Solved Variable Numbers
+      let valuesCorrect = true;
+      m.fields.forEach(field => {
+        const el = document.getElementById(field.id);
+        const val = parseFloat(el.value);
+        if (isNaN(val) || Math.abs(val - field.correct) > 0.01) {
+          valuesCorrect = false;
+        }
+      });
+
+      if (equationsCorrect && valuesCorrect) {
+        // Full Success
         playSound('correct');
-        const xpEarned = completedMissions.has(currentMissionIndex) ? 50 : 200;
+        const xpEarned = completedMissions.has(currentMissionIndex) ? 75 : 300;
         score += xpEarned;
         completedMissions.add(currentMissionIndex);
         updateHUD();
@@ -996,19 +1141,18 @@
         banner.innerHTML = `
           <div class="flex items-center gap-2 font-bold text-emerald-300">
             <i class="ph-fill ph-check-circle text-xl"></i>
-            <span>EXCELLENT! System Correctly Solved (+${xpEarned} XP)</span>
+            <span>EQUATIONS & SOLUTIONS VERIFIED! (+${xpEarned} XP)</span>
           </div>
           <p class="text-xs text-emerald-200/90 font-sans leading-relaxed">
-            All variables satisfy both equations. You have successfully verified Worksheet ${m.worksheetRef}!
+            Your algebraic modeling and final variable values both balance the system perfectly!
           </p>
           <div class="flex gap-2 mt-1">
             <button type="button" onclick="showSolutionModal()" class="text-xs font-mono-math text-emerald-300 underline hover:text-white">
-              View Step-by-Step Algebraic Proof &rarr;
+              View Step-by-Step Algebraic Walkthrough &rarr;
             </button>
           </div>
         `;
 
-        // Check if all complete
         if (completedMissions.size === missions.length) {
           setTimeout(() => {
             triggerVictory();
@@ -1016,24 +1160,34 @@
         }
 
       } else {
-        // Mistake
+        // One or both failed
         playSound('wrong');
         lives = Math.max(0, lives - 1);
         updateHUD();
 
-        banner.className = 'p-4 rounded-xl text-sm font-medium bg-rose-950/80 border border-rose-600 text-rose-200 flex flex-col gap-1.5 shadow-lg shadow-rose-950';
+        let errorDetails = "";
+        if (!equationsCorrect) {
+          errorDetails += `<strong>Equation Formulation:</strong> ${eqFailMessages.join(' | ')}<br>`;
+        }
+        if (!valuesCorrect) {
+          errorDetails += `<strong>Numerical Solution:</strong> The computed values for the variables do not balance the system.`;
+        }
+
+        banner.className = 'p-4 rounded-xl text-sm font-medium bg-rose-950/80 border border-rose-600 text-rose-200 flex flex-col gap-2 shadow-lg shadow-rose-950';
         banner.innerHTML = `
           <div class="flex items-center gap-2 font-bold text-rose-300">
             <i class="ph-fill ph-warning-circle text-xl"></i>
-            <span>EQUATION MISMATCH: Check Your Math</span>
+            <span>SYSTEM CHECK FAILED</span>
           </div>
-          <p class="text-xs text-rose-200/90 font-sans">
-            One or more values do not balance the linear system. Tap the <strong>Hint</strong> dropdown above to review the system setup.
+          <p class="text-xs text-rose-200/90 font-sans leading-relaxed">
+            ${errorDetails}
           </p>
+          <div class="text-[11px] text-slate-400 font-mono-math">
+            Tip: You can use the "Need a Hint" dropdown above to check the standard equation setup.
+          </div>
         `;
 
         if (lives === 0) {
-          // Reset lives after a short penalty
           setTimeout(() => {
             lives = 3;
             updateHUD();
