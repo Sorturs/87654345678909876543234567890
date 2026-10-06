@@ -1,0 +1,1192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Linear Legends: System Solver Odyssey</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Tone.js for synthesized audio SFX -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
+  <!-- Phosphor Icons -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+  
+  <style>
+    body {
+      font-family: 'Outfit', sans-serif;
+      background-color: #0b0f19;
+      color: #e2e8f0;
+      user-select: none;
+    }
+    .font-mono-math {
+      font-family: 'Fira Code', monospace;
+    }
+    .glow-cyan {
+      box-shadow: 0 0 25px rgba(6, 182, 212, 0.35);
+    }
+    .glow-amber {
+      box-shadow: 0 0 25px rgba(245, 158, 11, 0.35);
+    }
+    .glow-emerald {
+      box-shadow: 0 0 25px rgba(16, 185, 129, 0.35);
+    }
+    /* Custom scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 9999px;
+    }
+    /* Dynamic pulsing effect */
+    @keyframes pulse-subtle {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.02); opacity: 0.92; }
+    }
+    .pulse-glow {
+      animation: pulse-subtle 3s infinite ease-in-out;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between overflow-x-hidden selection:bg-cyan-500 selection:text-black">
+  <!-- Top Navigation & Player HUD -->
+  <header class="border-b border-slate-800/80 bg-slate-900/90 backdrop-blur-md sticky top-0 z-40 px-4 py-3 sm:px-6">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-cyan-500/20">
+          <i class="ph-bold ph-compass text-2xl"></i>
+        </div>
+        <div>
+          <h1 class="text-lg sm:text-xl font-extrabold tracking-tight bg-gradient-to-r from-cyan-400 via-sky-300 to-indigo-300 bg-clip-text text-transparent">
+            LINEAR LEGENDS
+          </h1>
+          <p class="text-xs text-slate-400 font-medium hidden sm:block">Grade 10 Linear Systems Masterclass Quest</p>
+        </div>
+      </div>
+
+      <!-- Stats Bar -->
+      <div class="flex items-center gap-3 sm:gap-6 bg-slate-950/80 px-4 py-1.5 rounded-full border border-slate-800 text-xs sm:text-sm">
+        <div class="flex items-center gap-1.5 text-amber-400">
+          <i class="ph-fill ph-trophy text-base"></i>
+          <span class="font-bold font-mono-math" id="hudScore">0 XP</span>
+        </div>
+        <div class="h-4 w-px bg-slate-800"></div>
+        <div class="flex items-center gap-1.5 text-rose-400">
+          <i class="ph-fill ph-heart text-base"></i>
+          <span class="font-bold font-mono-math" id="hudLives">❤❤❤</span>
+        </div>
+        <div class="h-4 w-px bg-slate-800"></div>
+        <div class="flex items-center gap-1.5 text-cyan-400">
+          <i class="ph-bold ph-crosshair text-base"></i>
+          <span class="font-semibold text-slate-300">Mission <span id="hudLevelNum" class="text-cyan-400 font-bold">1</span>/9</span>
+        </div>
+      </div>
+
+      <!-- Quick Audio Toggle & Missions Menu -->
+      <div class="flex items-center gap-2">
+        <button id="soundToggleBtn" onclick="toggleAudio()" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors" title="Toggle Sound">
+          <i id="soundIcon" class="ph-bold ph-speaker-high text-lg"></i>
+        </button>
+        <button onclick="openMissionSelect()" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs sm:text-sm flex items-center gap-1.5 transition-all shadow-md shadow-indigo-600/30">
+          <i class="ph-bold ph-list-numbers"></i>
+          <span>Missions</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+    
+    <!-- Left Column: Mission Overview & Visual Simulation Area (7 cols on lg) -->
+    <section class="lg:col-span-7 flex flex-col gap-5">
+      <!-- Mission Card -->
+      <div class="rounded-2xl border border-slate-800/90 bg-slate-900/60 p-5 sm:p-6 backdrop-blur-sm relative overflow-hidden shadow-xl">
+        <div class="absolute -right-12 -top-12 w-48 h-48 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <span id="missionBadge" class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-cyan-950 text-cyan-400 border border-cyan-800/50">
+            Topic: Number Relations
+          </span>
+          <span id="questionNumTag" class="text-xs text-slate-400 font-mono-math">Worksheet #4</span>
+        </div>
+
+        <h2 id="missionTitle" class="text-2xl sm:text-3xl font-bold text-white mb-2">
+          The Two Number Vault
+        </h2>
+        
+        <p id="missionProblemText" class="text-slate-300 text-sm sm:text-base leading-relaxed bg-slate-950/60 p-4 rounded-xl border border-slate-800/70 font-sans">
+          Loading problem statement...
+        </p>
+
+        <!-- Interactive Visual Simulation Canvas / Diagram Area -->
+        <div class="mt-4 rounded-xl border border-slate-800 bg-slate-950 p-4 flex flex-col items-center justify-center relative min-h-[220px]">
+          <div class="absolute top-2 left-3 text-[11px] font-mono-math text-slate-500 uppercase tracking-widest flex items-center gap-1">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+            Visual Telemetry / Diagram
+          </div>
+          <div id="diagramContainer" class="w-full h-full flex items-center justify-center pt-4">
+            <!-- Dynamic SVG or Canvas will be injected here -->
+          </div>
+        </div>
+
+        <!-- Strategy / Elimination Hint Accordion -->
+        <div class="mt-4 pt-3 border-t border-slate-800/80">
+          <button onclick="toggleHint()" class="flex items-center justify-between w-full text-xs sm:text-sm text-cyan-400 hover:text-cyan-300 font-semibold transition-colors">
+            <span class="flex items-center gap-2">
+              <i class="ph-bold ph-lightbulb"></i>
+              <span>Need a Hint / System of Equations Setup?</span>
+            </span>
+            <i id="hintCaret" class="ph-bold ph-caret-down transition-transform duration-200"></i>
+          </button>
+          <div id="hintBox" class="hidden mt-3 p-3.5 rounded-lg bg-indigo-950/40 border border-indigo-900/60 text-indigo-200 text-xs sm:text-sm font-mono-math leading-relaxed">
+            <!-- Hint content -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Concept Guide Box -->
+      <div class="rounded-2xl border border-slate-800/70 bg-slate-900/40 p-4 sm:p-5 text-xs text-slate-400 flex items-start gap-3">
+        <i class="ph-fill ph-info text-cyan-400 text-lg flex-shrink-0 mt-0.5"></i>
+        <div>
+          <span class="font-bold text-slate-200">Standard Solving Methods:</span>
+          Use <strong class="text-cyan-300">Elimination</strong> (adding or subtracting equations to eliminate one variable) or <strong class="text-indigo-300">Substitution</strong> (isolating one variable, e.g. <span class="font-mono-math">x = 255 - y</span>, and plugging it into the other).
+        </div>
+      </div>
+    </section>
+
+    <!-- Right Column: Player Solving Terminal & Answer Form (5 cols on lg) -->
+    <section class="lg:col-span-5 flex flex-col gap-5">
+      <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 sm:p-6 backdrop-blur-sm shadow-xl flex flex-col gap-5">
+        
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div class="flex items-center gap-2">
+            <i class="ph-bold ph-terminal-window text-cyan-400 text-xl"></i>
+            <h3 class="font-bold text-white tracking-wide text-base sm:text-lg">Solution Input Deck</h3>
+          </div>
+          <span class="text-xs bg-slate-800 text-slate-300 px-2.5 py-1 rounded font-mono-math" id="equationHintBadge">2 Equations Needed</span>
+        </div>
+
+        <!-- Dynamic Input Form generated per question -->
+        <form id="answerForm" onsubmit="handleAnswerSubmit(event)" class="flex flex-col gap-4">
+          <div id="inputsContainer" class="flex flex-col gap-4">
+            <!-- Inputs dynamically rendered -->
+          </div>
+
+          <!-- Feedback Status Alert Banner -->
+          <div id="feedbackBanner" class="hidden p-3.5 rounded-xl text-sm font-medium transition-all"></div>
+
+          <!-- Submit Button & Auxiliary Controls -->
+          <div class="flex items-center gap-3 pt-2">
+            <button type="submit" id="submitBtn" class="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-extrabold text-sm sm:text-base tracking-wide shadow-lg shadow-cyan-500/25 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+              <i class="ph-bold ph-check-circle text-lg"></i>
+              <span>VERIFY SOLUTION</span>
+            </button>
+            <button type="button" onclick="clearInputs()" class="p-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors" title="Clear values">
+              <i class="ph-bold ph-arrows-counter-clockwise text-lg"></i>
+            </button>
+          </div>
+        </form>
+
+        <!-- Scratchpad / Quick Calculator Sandbox -->
+        <div class="mt-2 border-t border-slate-800 pt-4">
+          <div class="flex items-center justify-between text-xs text-slate-400 mb-2">
+            <span class="flex items-center gap-1.5 font-semibold text-slate-300">
+              <i class="ph-bold ph-calculator text-cyan-400"></i>
+              In-Game Scratchpad & Evaluator
+            </span>
+            <span class="text-[11px] text-slate-500">e.g. 470 - 100*2</span>
+          </div>
+          <div class="flex gap-2">
+            <input type="text" id="scratchInput" placeholder="Type math: 255 - 39 or (420 - 320)/0.05" class="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs font-mono-math text-cyan-300 focus:outline-none focus:border-cyan-500">
+            <button type="button" onclick="evalScratch()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-bold transition-colors">
+              Eval
+            </button>
+          </div>
+          <div id="scratchResult" class="text-right text-xs font-mono-math text-emerald-400 mt-1 min-h-[16px]"></div>
+        </div>
+
+      </div>
+
+      <!-- Navigation & Progress Controls -->
+      <div class="flex items-center justify-between gap-3 bg-slate-900/50 p-4 rounded-xl border border-slate-800/80">
+        <button id="prevBtn" onclick="prevMission()" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed text-xs sm:text-sm font-semibold text-slate-200 flex items-center gap-1.5 transition-colors">
+          <i class="ph-bold ph-arrow-left"></i>
+          <span>Previous</span>
+        </button>
+        <div class="flex items-center gap-1" id="dotsContainer">
+          <!-- Step indicator dots -->
+        </div>
+        <button id="nextBtn" onclick="nextMission()" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed text-xs sm:text-sm font-semibold text-white flex items-center gap-1.5 transition-colors shadow-md shadow-indigo-600/30">
+          <span>Next</span>
+          <i class="ph-bold ph-arrow-right"></i>
+        </button>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Mission Select Modal -->
+  <div id="missionModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+      <div class="p-5 border-b border-slate-800 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <i class="ph-fill ph-compass text-cyan-400 text-xl"></i>
+          <h3 class="text-lg font-bold text-white">Mission Select Log</h3>
+        </div>
+        <button onclick="closeMissionSelect()" class="p-2 text-slate-400 hover:text-white rounded-lg">
+          <i class="ph-bold ph-x text-lg"></i>
+        </button>
+      </div>
+      <div class="p-5 overflow-y-auto flex flex-col gap-2.5" id="missionListContainer">
+        <!-- List injected dynamically -->
+      </div>
+      <div class="p-4 border-t border-slate-800 bg-slate-950/60 flex justify-between items-center text-xs text-slate-400">
+        <span>Complete all 9 missions to become a Linear Systems Grandmaster.</span>
+        <button onclick="closeMissionSelect()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-semibold">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detailed Step-by-Step Walkthrough Modal (Triggered on request or after solving) -->
+  <div id="solutionModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+      <div class="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/40">
+        <div class="flex items-center gap-2 text-cyan-400">
+          <i class="ph-fill ph-book-open text-xl"></i>
+          <h3 class="text-base sm:text-lg font-bold text-white" id="solutionModalTitle">Complete Step-by-Step Solution</h3>
+        </div>
+        <button onclick="closeSolutionModal()" class="p-2 text-slate-400 hover:text-white rounded-lg">
+          <i class="ph-bold ph-x text-lg"></i>
+        </button>
+      </div>
+      <div class="p-5 overflow-y-auto space-y-4 font-mono-math text-sm text-slate-300" id="solutionModalBody">
+        <!-- Solution math steps -->
+      </div>
+      <div class="p-4 border-t border-slate-800 bg-slate-950 flex justify-end">
+        <button onclick="closeSolutionModal()" class="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold rounded-lg text-sm transition-colors">
+          Got It!
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Victory / Game Complete Modal -->
+  <div id="victoryModal" class="fixed inset-0 bg-black/90 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-gradient-to-b from-slate-900 to-slate-950 border border-cyan-500/40 rounded-3xl max-w-lg w-full p-8 text-center shadow-2xl relative">
+      <div class="w-20 h-20 mx-auto rounded-2xl bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-cyan-300 text-4xl mb-4">
+        <i class="ph-fill ph-crown"></i>
+      </div>
+      <h2 class="text-3xl font-extrabold text-white mb-2">Systems Mastered!</h2>
+      <p class="text-slate-300 text-sm mb-6">
+        Outstanding! You solved all 9 real-world linear applications and geometric challenge problems from your worksheet with flying colors.
+      </p>
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 mb-6 grid grid-cols-2 gap-4 text-center">
+        <div>
+          <div class="text-xs text-slate-400 uppercase font-mono-math">Final Score</div>
+          <div id="victoryScore" class="text-2xl font-black text-amber-400 font-mono-math">0 XP</div>
+        </div>
+        <div>
+          <div class="text-xs text-slate-400 uppercase font-mono-math">Mastery Badge</div>
+          <div class="text-sm font-bold text-cyan-300 mt-1">Linear Grandmaster</div>
+        </div>
+      </div>
+      <div class="flex gap-3">
+        <button onclick="restartGame()" class="flex-1 py-3 px-4 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-sm transition-colors">
+          Replay All
+        </button>
+        <button onclick="closeVictoryModal()" class="flex-1 py-3 px-4 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-extrabold rounded-xl text-sm transition-colors">
+          Free Practice
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer Information -->
+  <footer class="border-t border-slate-900 bg-slate-950 px-4 py-3 text-center text-xs text-slate-500">
+    Designed for Grade 10 Academic Math &bull; Linear Systems: Elimination, Substitution & Applications &bull; Practice: Word Problems Part 2
+  </footer>
+
+  <script>
+    /* =========================================================
+       AUDIO SYNTHESIZER (TONE.JS)
+       Creates dynamic game SFX without any external media files
+    ========================================================== */
+    let audioReady = false;
+    let audioEnabled = true;
+    let synth = null;
+    let noiseSynth = null;
+
+    function initAudio() {
+      if (audioReady) return;
+      try {
+        synth = new Tone.PolySynth(Tone.Synth, {
+          oscillator: { type: 'triangle' },
+          envelope: { attack: 0.01, decay: 0.1, sustain: 0.1, release: 0.4 }
+        }).toDestination();
+        synth.volume.value = -8;
+
+        noiseSynth = new Tone.NoiseSynth({
+          noise: { type: 'white' },
+          envelope: { attack: 0.005, decay: 0.1, sustain: 0 }
+        }).toDestination();
+        noiseSynth.volume.value = -12;
+
+        audioReady = true;
+      } catch (e) {
+        console.warn("Tone.js could not initialize audio context yet.", e);
+      }
+    }
+
+    function playSound(type) {
+      if (!audioEnabled) return;
+      try {
+        if (!audioReady) initAudio();
+        Tone.start();
+
+        const now = Tone.now();
+        if (type === 'correct') {
+          synth.triggerAttackRelease(["C5", "E5", "G5", "C6"], "16n", now);
+        } else if (type === 'wrong') {
+          synth.triggerAttackRelease(["F3", "B2"], "8n", now);
+        } else if (type === 'click') {
+          synth.triggerAttackRelease("A5", "32n", now);
+        } else if (type === 'victory') {
+          synth.triggerAttackRelease(["C4", "G4", "C5", "E5", "G5"], "4n", now);
+        }
+      } catch (err) {
+        // silent fallback if browser blocks autoplay
+      }
+    }
+
+    function toggleAudio() {
+      audioEnabled = !audioEnabled;
+      const icon = document.getElementById('soundIcon');
+      if (audioEnabled) {
+        icon.className = 'ph-bold ph-speaker-high text-lg text-cyan-400';
+        initAudio();
+        playSound('click');
+      } else {
+        icon.className = 'ph-bold ph-speaker-slash text-lg text-slate-500';
+      }
+    }
+
+    /* =========================================================
+       QUESTIONS DATABASE
+       Directly mirrors Questions 4, 5, 6, 7, 8, 9, 10, 11, 12
+       from the provided Word Problems worksheet.
+    ========================================================== */
+    const missions = [
+      {
+        id: 4,
+        worksheetRef: "#4",
+        category: "Number Relations",
+        badgeColor: "cyan",
+        title: "The Number Lock",
+        problem: "The sum of two numbers is 255. When the smaller is subtracted from the larger, the result is 39. Find the two numbers.",
+        diagramType: "numbers",
+        fields: [
+          { id: "larger", label: "Larger Number (x)", placeholder: "e.g. 150", correct: 147 },
+          { id: "smaller", label: "Smaller Number (y)", placeholder: "e.g. 100", correct: 108 }
+        ],
+        hint: `Let x = larger number, y = smaller number.<br>
+               Equation 1: x + y = 255<br>
+               Equation 2: x - y = 39<br>
+               Method: Add both equations together to eliminate y: 2x = 294 &rarr; x = 147.`,
+        walkthrough: `
+          <strong>Step 1: Set up the equations:</strong><br>
+          (1) x + y = 255<br>
+          (2) x - y = 39<br><br>
+          <strong>Step 2: Add (1) and (2) by elimination:</strong><br>
+          (x + x) + (y - y) = 255 + 39<br>
+          2x = 294<br>
+          x = 294 &divide; 2 = <strong>147</strong><br><br>
+          <strong>Step 3: Substitute x = 147 into (1):</strong><br>
+          147 + y = 255<br>
+          y = 255 - 147 = <strong>108</strong><br><br>
+          <strong>Verification:</strong> 147 + 108 = 255 &check; and 147 - 108 = 39 &check;.
+        `
+      },
+      {
+        id: 5,
+        worksheetRef: "#5",
+        category: "Financial Interest",
+        badgeColor: "amber",
+        title: "Isabel's Dual Portfolio",
+        problem: "Isabel invested $8000, part at 9% per annum and the remainder at 4% per annum. After one year, the total interest from these investments was $420. How much did she invest at each rate?",
+        diagramType: "interest-isabel",
+        fields: [
+          { id: "amt9", label: "Amount at 9% ($)", placeholder: "e.g. 2000", correct: 2000 },
+          { id: "amt4", label: "Amount at 4% ($)", placeholder: "e.g. 6000", correct: 6000 }
+        ],
+        hint: `Let x = amount at 9%, y = amount at 4%.<br>
+               Equation 1 (Total principal): x + y = 8000<br>
+               Equation 2 (Total interest): 0.09x + 0.04y = 420<br>
+               Multiply Eq 2 by 100: 9x + 4y = 42000.<br>
+               Multiply Eq 1 by 4: 4x + 4y = 32000. Subtract them!`,
+        walkthrough: `
+          <strong>Step 1: Define variables:</strong><br>
+          x = principal at 9% (0.09)<br>
+          y = principal at 4% (0.04)<br><br>
+          <strong>Step 2: System of equations:</strong><br>
+          (1) x + y = 8000<br>
+          (2) 0.09x + 0.04y = 420<br><br>
+          <strong>Step 3: Multiply (2) by 100 to clear decimals:</strong><br>
+          (2b) 9x + 4y = 42000<br><br>
+          <strong>Step 4: Multiply (1) by 4:</strong><br>
+          (1b) 4x + 4y = 32000<br><br>
+          <strong>Step 5: Subtract (1b) from (2b):</strong><br>
+          5x = 10000 &rarr; x = <strong>$2000</strong> (at 9%)<br><br>
+          <strong>Step 6: Solve for y:</strong><br>
+          y = 8000 - 2000 = <strong>$6000</strong> (at 4%).
+        `
+      },
+      {
+        id: 6,
+        worksheetRef: "#6",
+        category: "Distance, Speed, Time",
+        badgeColor: "emerald",
+        title: "Kareem's Road Trip",
+        problem: "Kareem took 5 h to drive 470 km from Sudbury to Brantford. For part of the trip, he drove at 100 km/h. For the rest of the trip, he drove at 90 km/h. How far did he drive at each speed?",
+        diagramType: "highway",
+        fields: [
+          { id: "dist100", label: "Distance at 100 km/h (km)", placeholder: "e.g. 200", correct: 200 },
+          { id: "dist90", label: "Distance at 90 km/h (km)", placeholder: "e.g. 270", correct: 270 }
+        ],
+        hint: `Let t1 = time driving at 100 km/h, t2 = time driving at 90 km/h.<br>
+               Time equation: t1 + t2 = 5<br>
+               Distance equation: 100(t1) + 90(t2) = 470<br>
+               Solve for times first: t1 = 2 h, t2 = 3 h.<br>
+               Remember the question asks for <strong>distance</strong>: d = speed &times; time!`,
+        walkthrough: `
+          <strong>Step 1: Set up using times:</strong><br>
+          Let t1 = time at 100 km/h, t2 = time at 90 km/h.<br>
+          (1) t1 + t2 = 5<br>
+          (2) 100*t1 + 90*t2 = 470<br><br>
+          <strong>Step 2: Multiply (1) by 90:</strong><br>
+          90*t1 + 90*t2 = 450<br><br>
+          <strong>Step 3: Subtract from (2):</strong><br>
+          10*t1 = 20 &rarr; t1 = 2 hours at 100 km/h.<br>
+          t2 = 5 - 2 = 3 hours at 90 km/h.<br><br>
+          <strong>Step 4: Calculate distances:</strong><br>
+          Distance at 100 km/h = 100 &times; 2 = <strong>200 km</strong><br>
+          Distance at 90 km/h = 90 &times; 3 = <strong>270 km</strong>.<br>
+          Check: 200 + 270 = 470 km &check;.
+        `
+      },
+      {
+        id: 7,
+        worksheetRef: "#7",
+        category: "Wind & Water Currents",
+        badgeColor: "cyan",
+        title: "Patrol Boat River Mission",
+        problem: "It took a patrol boat 5 h to travel 60 km up a river against the current, and 3 h for the return trip with the current. Find the speed of the boat in still water and the speed of the current.",
+        diagramType: "boat",
+        fields: [
+          { id: "boatSpeed", label: "Boat Speed in Still Water (km/h)", placeholder: "e.g. 15", correct: 16 },
+          { id: "currentSpeed", label: "Current Speed (km/h)", placeholder: "e.g. 4", correct: 4 }
+        ],
+        hint: `Upstream speed = b - c = 60 / 5 = 12 km/h.<br>
+               Downstream speed = b + c = 60 / 3 = 20 km/h.<br>
+               System: b - c = 12 and b + c = 20. Add both!`,
+        walkthrough: `
+          <strong>Step 1: Determine effective speeds:</strong><br>
+          Upstream speed = Distance / Time = 60 / 5 = 12 km/h<br>
+          Downstream speed = Distance / Time = 60 / 3 = 20 km/h<br><br>
+          <strong>Step 2: Let b = boat speed, c = current speed:</strong><br>
+          (1) b - c = 12<br>
+          (2) b + c = 20<br><br>
+          <strong>Step 3: Add both equations (Elimination):</strong><br>
+          2b = 32 &rarr; b = <strong>16 km/h</strong> (boat speed)<br><br>
+          <strong>Step 4: Solve for c:</strong><br>
+          16 + c = 20 &rarr; c = <strong>4 km/h</strong> (current speed).
+        `
+      },
+      {
+        id: 8,
+        worksheetRef: "#8",
+        category: "Financial Interest",
+        badgeColor: "amber",
+        title: "Hakim's Treasury Investment",
+        problem: "Hakim invested $15 000. He put part of it in a term deposit that paid 4% per annum, and the remainder in a treasury bill that paid 5% per annum. After one year, the total interest was $690. How much did Hakim invest at each rate?",
+        diagramType: "interest-hakim",
+        fields: [
+          { id: "amt4", label: "Invested at 4% ($)", placeholder: "e.g. 5000", correct: 6000 },
+          { id: "amt5", label: "Invested at 5% ($)", placeholder: "e.g. 9000", correct: 9000 }
+        ],
+        hint: `Let x = amount at 4%, y = amount at 5%.<br>
+               Total capital: x + y = 15000<br>
+               Total interest: 0.04x + 0.05y = 690<br>
+               Multiply interest equation by 100: 4x + 5y = 69000.<br>
+               Multiply capital by 4: 4x + 4y = 60000. Subtract!`,
+        walkthrough: `
+          <strong>Step 1: System of equations:</strong><br>
+          (1) x + y = 15000<br>
+          (2) 0.04x + 0.05y = 690 &rarr; 4x + 5y = 69000<br><br>
+          <strong>Step 2: Multiply (1) by 4:</strong><br>
+          4x + 4y = 60000<br><br>
+          <strong>Step 3: Subtract from (2):</strong><br>
+          (4x - 4x) + (5y - 4y) = 69000 - 60000<br>
+          y = <strong>$9000</strong> (at 5% Treasury Bill)<br><br>
+          <strong>Step 4: Calculate x:</strong><br>
+          x = 15000 - 9000 = <strong>$6000</strong> (at 4% Term Deposit).
+        `
+      },
+      {
+        id: 9,
+        worksheetRef: "#9 (Challenge)",
+        category: "Geometry & Transversals",
+        badgeColor: "rose",
+        title: "Transversal Angle Challenge",
+        problem: "In the diagram, two parallel lines are cut by a transversal. Find the values of x and y using the geometric angle relationships (alternate exterior and supplementary interior).",
+        diagramType: "transversal-9",
+        fields: [
+          { id: "xVal", label: "Value of x", placeholder: "e.g. 30", correct: 34 },
+          { id: "yVal", label: "Value of y", placeholder: "e.g. 10", correct: 10 }
+        ],
+        hint: `From the geometric diagram:<br>
+               The angle (2x - y)° equals the alternate exterior angle 58°: 2x - y = 58.<br>
+               The adjacent angle (3x + 2y)° and (2x - y)° form a straight line (sum = 180°), so: (3x + 2y) + 58 = 180 &rarr; 3x + 2y = 122.<br>
+               Solve the system: 2x - y = 58 and 3x + 2y = 122!`,
+        walkthrough: `
+          <strong>Step 1: Recognize angle theorems:</strong><br>
+          (1) Alternate exterior angles are equal: (2x - y) = 58<br>
+          (2) Interior consecutive/supplementary angles: (3x + 2y) + 58 = 180<br>
+              &rarr; 3x + 2y = 122<br><br>
+          <strong>Step 2: Multiply equation (1) by 2:</strong><br>
+          4x - 2y = 116<br><br>
+          <strong>Step 3: Add to equation (2) to eliminate y:</strong><br>
+          (4x + 3x) + (-2y + 2y) = 116 + 122<br>
+          7x = 238 &rarr; x = <strong>34</strong><br><br>
+          <strong>Step 4: Substitute x = 34 into (1):</strong><br>
+          2(34) - y = 58 &rarr; 68 - y = 58 &rarr; y = 68 - 58 = <strong>10</strong>.
+        `
+      },
+      {
+        id: 10,
+        worksheetRef: "#10",
+        category: "Mixture Solutions",
+        badgeColor: "indigo",
+        title: "The Acetic Acid Titration",
+        problem: "White vinegar is a solution of acetic acid in water. There are two strengths of white vinegar—a 5% solution and a 10% solution. How many millilitres of each solution must be mixed to make 50 mL of a 9% vinegar solution?",
+        diagramType: "mixture-vinegar",
+        fields: [
+          { id: "sol5", label: "5% Solution volume (mL)", placeholder: "e.g. 10", correct: 10 },
+          { id: "sol10", label: "10% Solution volume (mL)", placeholder: "e.g. 40", correct: 40 }
+        ],
+        hint: `Let x = mL of 5% solution, y = mL of 10% solution.<br>
+               Total volume: x + y = 50<br>
+               Pure acid balance: 0.05x + 0.10y = 0.09(50) = 4.5<br>
+               Multiply by 100: 5x + 10y = 450. Substitute or eliminate!`,
+        walkthrough: `
+          <strong>Step 1: Equations:</strong><br>
+          (1) x + y = 50 &rarr; x = 50 - y<br>
+          (2) 0.05x + 0.10y = 0.09(50) = 4.5<br><br>
+          <strong>Step 2: Multiply (2) by 100:</strong><br>
+          5x + 10y = 450<br><br>
+          <strong>Step 3: Substitute x = 50 - y:</strong><br>
+          5(50 - y) + 10y = 450<br>
+          250 - 5y + 10y = 450<br>
+          5y = 200 &rarr; y = <strong>40 mL</strong> of the 10% solution.<br><br>
+          <strong>Step 4: Find x:</strong><br>
+          x = 50 - 40 = <strong>10 mL</strong> of the 5% solution.
+        `
+      },
+      {
+        id: 11,
+        worksheetRef: "#11",
+        category: "Mixture Solutions",
+        badgeColor: "indigo",
+        title: "Hydrochloric Acid Blend",
+        problem: "What volume, in millilitres, of a 60% hydrochloric acid solution must be added to 100 mL of a 30% hydrochloric acid solution to make a 36% hydrochloric acid solution?",
+        diagramType: "mixture-acid",
+        fields: [
+          { id: "acid60", label: "Volume of 60% HCl added (mL)", placeholder: "e.g. 25", correct: 25 }
+        ],
+        hint: `Let v = volume of 60% solution added.<br>
+               Total new volume = 100 + v.<br>
+               Pure acid equation: 0.60(v) + 0.30(100) = 0.36(100 + v)<br>
+               0.60v + 30 = 36 + 0.36v. Subtract 0.36v and 30!`,
+        walkthrough: `
+          <strong>Step 1: Balance pure acid content:</strong><br>
+          Acid from 60% solution = 0.60v<br>
+          Acid from 30% solution = 0.30(100) = 30 mL<br>
+          Total resulting acid = 0.36(100 + v)<br><br>
+          <strong>Step 2: Form the linear equation:</strong><br>
+          0.60v + 30 = 36 + 0.36v<br><br>
+          <strong>Step 3: Rearrange like terms:</strong><br>
+          0.60v - 0.36v = 36 - 30<br>
+          0.24v = 6<br>
+          v = 6 &divide; 0.24 = <strong>25 mL</strong>.<br><br>
+          So 25 mL of 60% acid must be added.
+        `
+      },
+      {
+        id: 12,
+        worksheetRef: "#12 (Challenge)",
+        category: "Geometry & Intersections",
+        badgeColor: "rose",
+        title: "Vertical & Supplementary Angles",
+        problem: "In the diagram, two straight lines intersect. One obtuse angle is 124°. The opposite vertical angle is (2x + 3y)°, and an adjacent supplementary angle is (3x - 2y)°. Find the values of x and y.",
+        diagramType: "intersect-12",
+        fields: [
+          { id: "xVal", label: "Value of x", placeholder: "e.g. 32", correct: 32 },
+          { id: "yVal", label: "Value of y", placeholder: "e.g. 20", correct: 20 }
+        ],
+        hint: `Opposite vertical angles are equal:<br>
+               (2x + 3y) = 124<br>
+               Adjacent angles on a straight line add to 180°:<br>
+               (3x - 2y) + 124 = 180 &rarr; 3x - 2y = 56.<br>
+               Solve the system: 2x + 3y = 124 and 3x - 2y = 56!`,
+        walkthrough: `
+          <strong>Step 1: Set up from angle theorems:</strong><br>
+          (1) Vertical angles are equal: 2x + 3y = 124<br>
+          (2) Supplementary straight line angles: (3x - 2y) = 180 - 124 = 56<br><br>
+          <strong>Step 2: Match coefficients to eliminate y:</strong><br>
+          Multiply (1) by 2: 4x + 6y = 248<br>
+          Multiply (2) by 3: 9x - 6y = 168<br><br>
+          <strong>Step 3: Add both equations:</strong><br>
+          13x = 416<br>
+          x = 416 &divide; 13 = <strong>32</strong><br><br>
+          <strong>Step 4: Substitute x = 32 into (1):</strong><br>
+          2(32) + 3y = 124<br>
+          64 + 3y = 124 &rarr; 3y = 60 &rarr; y = <strong>20</strong>.
+        `
+      }
+    ];
+
+    /* =========================================================
+       GAME STATE
+    ========================================================== */
+    let currentMissionIndex = 0;
+    let score = 0;
+    let lives = 3;
+    let completedMissions = new Set();
+
+    function updateHUD() {
+      document.getElementById('hudScore').innerText = `${score} XP`;
+      let hearts = "";
+      for (let i = 0; i < lives; i++) hearts += "❤";
+      for (let i = lives; i < 3; i++) hearts += "🖤";
+      document.getElementById('hudLives').innerText = hearts;
+      document.getElementById('hudLevelNum').innerText = `${currentMissionIndex + 1}`;
+      
+      // Update Previous/Next buttons
+      document.getElementById('prevBtn').disabled = currentMissionIndex === 0;
+      document.getElementById('nextBtn').disabled = currentMissionIndex === missions.length - 1;
+
+      // Update Navigation step dots
+      const dotsCont = document.getElementById('dotsContainer');
+      dotsCont.innerHTML = '';
+      missions.forEach((m, idx) => {
+        const dot = document.createElement('button');
+        dot.className = `w-2.5 h-2.5 rounded-full transition-all ${
+          idx === currentMissionIndex 
+            ? 'w-6 bg-cyan-400' 
+            : completedMissions.has(idx) 
+              ? 'bg-emerald-400' 
+              : 'bg-slate-700 hover:bg-slate-600'
+        }`;
+        dot.title = `Go to mission ${idx + 1}`;
+        dot.onclick = () => loadMission(idx);
+        dotsCont.appendChild(dot);
+      });
+    }
+
+    /* =========================================================
+       RENDER DIAGRAMS (Dyna-SVG Visualizer)
+    ========================================================== */
+    function renderDiagram(mission) {
+      const cont = document.getElementById('diagramContainer');
+      const type = mission.diagramType;
+
+      if (type === "numbers") {
+        cont.innerHTML = `
+          <div class="flex flex-col items-center gap-3">
+            <svg viewBox="0 0 400 120" class="w-full max-w-sm h-28">
+              <!-- Scale Balance Graphic -->
+              <line x1="50" y1="90" x2="350" y2="90" stroke="#334155" stroke-width="3"/>
+              <polygon points="200,90 185,115 215,115" fill="#0ea5e9"/>
+              <!-- Pan 1 -->
+              <line x1="100" y1="45" x2="100" y2="85" stroke="#64748b" stroke-width="2"/>
+              <rect x="50" y="30" width="100" height="30" rx="8" fill="#1e293b" stroke="#38bdf8" stroke-width="2"/>
+              <text x="100" y="50" fill="#38bdf8" font-size="12" font-family="monospace" text-anchor="middle" font-weight="bold">x + y = 255</text>
+              <!-- Pan 2 -->
+              <line x1="300" y1="45" x2="300" y2="85" stroke="#64748b" stroke-width="2"/>
+              <rect x="250" y="30" width="100" height="30" rx="8" fill="#1e293b" stroke="#a855f7" stroke-width="2"/>
+              <text x="300" y="50" fill="#c084fc" font-size="12" font-family="monospace" text-anchor="middle" font-weight="bold">x - y = 39</text>
+            </svg>
+            <span class="text-xs text-slate-400 font-mono-math">System Balance: Find unknown pair (x, y)</span>
+          </div>
+        `;
+      } else if (type === "interest-isabel" || type === "interest-hakim") {
+        const isIsabel = type === "interest-isabel";
+        const total = isIsabel ? "$8,000" : "$15,000";
+        const rate1 = isIsabel ? "9%" : "4%";
+        const rate2 = isIsabel ? "4%" : "5%";
+        const returnInt = isIsabel ? "$420" : "$690";
+
+        cont.innerHTML = `
+          <div class="w-full max-w-md flex flex-col gap-3">
+            <div class="flex justify-between items-center bg-slate-900 border border-slate-800 p-2.5 rounded-xl">
+              <span class="text-xs text-slate-400">Total Capital:</span>
+              <span class="font-mono-math font-bold text-amber-400 text-sm">${total}</span>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div class="bg-indigo-950/40 border border-indigo-800/50 rounded-xl p-3 text-center">
+                <div class="text-[11px] text-indigo-300 uppercase font-bold">Account A</div>
+                <div class="text-xl font-black text-indigo-400 font-mono-math mt-0.5">${rate1}</div>
+                <div class="text-[10px] text-slate-400 mt-1">Principal: <strong class="text-slate-200">x</strong></div>
+              </div>
+              <div class="bg-cyan-950/40 border border-cyan-800/50 rounded-xl p-3 text-center">
+                <div class="text-[11px] text-cyan-300 uppercase font-bold">Account B</div>
+                <div class="text-xl font-black text-cyan-400 font-mono-math mt-0.5">${rate2}</div>
+                <div class="text-[10px] text-slate-400 mt-1">Principal: <strong class="text-slate-200">y</strong></div>
+              </div>
+            </div>
+            <div class="text-center font-mono-math text-xs text-emerald-400 bg-emerald-950/30 py-1.5 px-3 rounded-lg border border-emerald-800/40">
+              Total Yield after 1 Year: <strong>${returnInt}</strong>
+            </div>
+          </div>
+        `;
+      } else if (type === "highway") {
+        cont.innerHTML = `
+          <svg viewBox="0 0 420 120" class="w-full max-w-md h-32">
+            <!-- Highway Line -->
+            <line x1="40" y1="65" x2="380" y2="65" stroke="#334155" stroke-width="8" stroke-linecap="round"/>
+            <line x1="40" y1="65" x2="380" y2="65" stroke="#fbbf24" stroke-dasharray="10 8" stroke-width="2"/>
+            <!-- Start point Sudbury -->
+            <circle cx="40" cy="65" r="7" fill="#06b6d4"/>
+            <text x="40" y="90" fill="#94a3b8" font-size="10" text-anchor="middle">Sudbury</text>
+            <!-- End point Brantford -->
+            <circle cx="380" cy="65" r="7" fill="#10b981"/>
+            <text x="380" y="90" fill="#94a3b8" font-size="10" text-anchor="middle">Brantford</text>
+            <!-- Division marker -->
+            <circle cx="200" cy="65" r="5" fill="#f43f5e"/>
+            <!-- Part 1 info -->
+            <text x="120" y="42" fill="#38bdf8" font-size="11" font-family="monospace" text-anchor="middle" font-weight="bold">100 km/h (d₁)</text>
+            <!-- Part 2 info -->
+            <text x="290" y="42" fill="#a78bfa" font-size="11" font-family="monospace" text-anchor="middle" font-weight="bold">90 km/h (d₂)</text>
+            <!-- Total badge -->
+            <rect x="140" y="98" width="140" height="20" rx="4" fill="#0f172a" stroke="#475569"/>
+            <text x="210" y="112" fill="#f1f5f9" font-size="10" font-family="monospace" text-anchor="middle">Total: 470 km / 5 h</text>
+          </svg>
+        `;
+      } else if (type === "boat") {
+        cont.innerHTML = `
+          <svg viewBox="0 0 420 130" class="w-full max-w-md h-32">
+            <!-- River Flow with Waves -->
+            <rect x="20" y="15" width="380" height="100" rx="12" fill="#082f49" stroke="#0284c7" stroke-width="1.5"/>
+            <!-- Waves -->
+            <path d="M 40,40 Q 60,35 80,40 T 120,40 T 160,40 T 200,40 T 240,40 T 280,40 T 320,40 T 360,40" fill="none" stroke="#0369a1" stroke-width="2"/>
+            <path d="M 40,80 Q 60,75 80,80 T 120,80 T 160,80 T 200,80 T 240,80 T 280,80 T 320,80 T 360,80" fill="none" stroke="#0369a1" stroke-width="2"/>
+            <!-- Current Arrow -->
+            <defs>
+              <marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#38bdf8"/>
+              </marker>
+            </defs>
+            <line x1="280" y1="28" x2="360" y2="28" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow)"/>
+            <text x="320" y="24" fill="#38bdf8" font-size="10" font-family="monospace" text-anchor="middle">Current (c) &rarr;</text>
+            <!-- Boat Graphic -->
+            <g transform="translate(180, 50)">
+              <polygon points="0,15 45,15 40,25 5,25" fill="#f8fafc"/>
+              <polygon points="15,0 15,15 30,15" fill="#0284c7"/>
+            </g>
+            <text x="205" y="98" fill="#f8fafc" font-size="11" font-family="monospace" text-anchor="middle">
+              Up: 60km in 5h | Down: 60km in 3h
+            </text>
+          </svg>
+        `;
+      } else if (type === "transversal-9") {
+        // Faithful reproduction of Page 2, Problem 9 diagram
+        cont.innerHTML = `
+          <svg viewBox="0 0 380 180" class="w-full max-w-sm h-44">
+            <!-- Parallel Line 1 -->
+            <line x1="30" y1="60" x2="350" y2="60" stroke="#f43f5e" stroke-width="2.5"/>
+            <!-- Parallel Line 2 -->
+            <line x1="30" y1="130" x2="350" y2="130" stroke="#f43f5e" stroke-width="2.5"/>
+            <!-- Double arrows on parallel lines -->
+            <path d="M 70,55 L 77,60 L 70,65 M 78,55 L 85,60 L 78,65" fill="none" stroke="#f43f5e" stroke-width="2"/>
+            <path d="M 70,125 L 77,130 L 70,135 M 78,125 L 85,130 L 78,135" fill="none" stroke="#f43f5e" stroke-width="2"/>
+            <!-- Transversal line -->
+            <line x1="140" y1="170" x2="230" y2="20" stroke="#ec4899" stroke-width="2.5"/>
+            <!-- Angle: 58° at bottom left -->
+            <path d="M 172,130 A 20 20 0 0 1 163,142" fill="none" stroke="#38bdf8" stroke-width="2"/>
+            <text x="135" y="142" fill="#ffffff" font-size="13" font-family="monospace" font-weight="bold">58°</text>
+            <!-- Angle: (2x - y)° at top right exterior -->
+            <text x="215" y="48" fill="#34d399" font-size="12" font-family="monospace" font-weight="bold">(2x - y)°</text>
+            <!-- Angle: (3x + 2y)° at interior -->
+            <text x="215" y="80" fill="#34d399" font-size="12" font-family="monospace" font-weight="bold">(3x + 2y)°</text>
+          </svg>
+        `;
+      } else if (type === "intersect-12") {
+        // Faithful reproduction of Page 2, Problem 12 diagram
+        cont.innerHTML = `
+          <svg viewBox="0 0 380 180" class="w-full max-w-sm h-44">
+            <!-- Horizontal intersecting line -->
+            <line x1="30" y1="90" x2="350" y2="90" stroke="#f43f5e" stroke-width="2.5"/>
+            <!-- Transverse intersecting line -->
+            <line x1="250" y1="170" x2="130" y2="20" stroke="#ec4899" stroke-width="2.5"/>
+            <!-- Angles -->
+            <text x="200" y="70" fill="#ffffff" font-size="14" font-family="monospace" font-weight="bold">124°</text>
+            <text x="85" y="115" fill="#34d399" font-size="13" font-family="monospace" font-weight="bold">(2x + 3y)°</text>
+            <text x="215" y="115" fill="#34d399" font-size="13" font-family="monospace" font-weight="bold">(3x - 2y)°</text>
+          </svg>
+        `;
+      } else if (type === "mixture-vinegar" || type === "mixture-acid") {
+        const isVinegar = type === "mixture-vinegar";
+        const flask1 = isVinegar ? "5% Acetic" : "60% HCl";
+        const flask2 = isVinegar ? "10% Acetic" : "30% (100 mL)";
+        const target = isVinegar ? "50 mL of 9% Solution" : "Goal: 36% HCl Blend";
+
+        cont.innerHTML = `
+          <div class="w-full max-w-md flex flex-col items-center gap-3">
+            <div class="flex items-center justify-center gap-4 sm:gap-8">
+              <!-- Flask A -->
+              <div class="flex flex-col items-center">
+                <div class="w-14 h-16 border-2 border-indigo-400 rounded-b-xl relative bg-indigo-950/40 overflow-hidden flex items-end justify-center">
+                  <div class="w-full h-8 bg-indigo-500/50"></div>
+                </div>
+                <span class="text-xs font-mono-math text-indigo-300 mt-1 font-bold">${flask1}</span>
+              </div>
+              <span class="text-xl font-bold text-slate-500">+</span>
+              <!-- Flask B -->
+              <div class="flex flex-col items-center">
+                <div class="w-14 h-16 border-2 border-cyan-400 rounded-b-xl relative bg-cyan-950/40 overflow-hidden flex items-end justify-center">
+                  <div class="w-full h-10 bg-cyan-500/50"></div>
+                </div>
+                <span class="text-xs font-mono-math text-cyan-300 mt-1 font-bold">${flask2}</span>
+              </div>
+              <span class="text-xl font-bold text-slate-500">=</span>
+              <!-- Target Beaker -->
+              <div class="flex flex-col items-center">
+                <div class="w-16 h-20 border-2 border-emerald-400 rounded-b-2xl relative bg-emerald-950/50 overflow-hidden flex items-end justify-center">
+                  <div class="w-full h-14 bg-emerald-500/40"></div>
+                </div>
+                <span class="text-xs font-mono-math text-emerald-300 mt-1 font-bold">Target</span>
+              </div>
+            </div>
+            <div class="bg-slate-900 border border-slate-800 px-4 py-1.5 rounded-full text-xs font-mono-math text-emerald-400 font-semibold">
+              ${target}
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    /* =========================================================
+       MISSION LOADER & CONTROLLER
+    ========================================================== */
+    function loadMission(index) {
+      if (index < 0 || index >= missions.length) return;
+      currentMissionIndex = index;
+      const m = missions[index];
+
+      // Update text details
+      document.getElementById('missionBadge').innerText = `Topic: ${m.category}`;
+      document.getElementById('questionNumTag').innerText = `Worksheet ${m.worksheetRef}`;
+      document.getElementById('missionTitle').innerText = m.title;
+      document.getElementById('missionProblemText').innerHTML = m.problem;
+      document.getElementById('hintBox').innerHTML = m.hint;
+      document.getElementById('equationHintBadge').innerText = `${m.fields.length} Answer${m.fields.length > 1 ? 's' : ''} Needed`;
+      
+      // Hide hint by default
+      document.getElementById('hintBox').classList.add('hidden');
+      document.getElementById('hintCaret').classList.remove('rotate-180');
+
+      // Clear feedback banner
+      const banner = document.getElementById('feedbackBanner');
+      banner.className = 'hidden p-3.5 rounded-xl text-sm font-medium transition-all';
+      banner.innerHTML = '';
+
+      // Render Visual Diagram
+      renderDiagram(m);
+
+      // Render Solution Inputs
+      const formCont = document.getElementById('inputsContainer');
+      formCont.innerHTML = '';
+      m.fields.forEach(field => {
+        const wrap = document.createElement('div');
+        wrap.className = 'flex flex-col gap-1.5';
+        wrap.innerHTML = `
+          <label for="${field.id}" class="text-xs sm:text-sm font-semibold text-slate-300 flex items-center justify-between">
+            <span>${field.label}</span>
+            <span class="text-[11px] text-slate-500 font-mono-math">Numeric value</span>
+          </label>
+          <div class="relative">
+            <input 
+              type="number" 
+              step="any"
+              id="${field.id}" 
+              placeholder="${field.placeholder}" 
+              required
+              class="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-4 py-3 text-slate-100 font-mono-math text-base focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all shadow-inner"
+            >
+            <div id="${field.id}_status" class="absolute right-3 top-3.5 hidden"></div>
+          </div>
+        `;
+        formCont.appendChild(wrap);
+      });
+
+      updateHUD();
+      playSound('click');
+    }
+
+    function toggleHint() {
+      const box = document.getElementById('hintBox');
+      const caret = document.getElementById('hintCaret');
+      if (box.classList.contains('hidden')) {
+        box.classList.remove('hidden');
+        caret.classList.add('rotate-180');
+        playSound('click');
+      } else {
+        box.classList.add('hidden');
+        caret.classList.remove('rotate-180');
+      }
+    }
+
+    function clearInputs() {
+      const m = missions[currentMissionIndex];
+      m.fields.forEach(f => {
+        const inp = document.getElementById(f.id);
+        if (inp) inp.value = '';
+      });
+      playSound('click');
+    }
+
+    /* =========================================================
+       SUBMISSION & ANSWER CHECKING
+    ========================================================== */
+    function handleAnswerSubmit(e) {
+      e.preventDefault();
+      const m = missions[currentMissionIndex];
+      let allCorrect = true;
+      let userValues = {};
+
+      m.fields.forEach(field => {
+        const el = document.getElementById(field.id);
+        const val = parseFloat(el.value);
+        userValues[field.id] = val;
+        // Check with small floating point tolerance
+        const isFieldCorrect = Math.abs(val - field.correct) < 0.01;
+        if (!isFieldCorrect) {
+          allCorrect = false;
+        }
+      });
+
+      const banner = document.getElementById('feedbackBanner');
+      banner.classList.remove('hidden');
+
+      if (allCorrect) {
+        // Success
+        playSound('correct');
+        const xpEarned = completedMissions.has(currentMissionIndex) ? 50 : 200;
+        score += xpEarned;
+        completedMissions.add(currentMissionIndex);
+        updateHUD();
+
+        banner.className = 'p-4 rounded-xl text-sm font-medium bg-emerald-950/80 border border-emerald-600 text-emerald-200 flex flex-col gap-2 shadow-lg shadow-emerald-950';
+        banner.innerHTML = `
+          <div class="flex items-center gap-2 font-bold text-emerald-300">
+            <i class="ph-fill ph-check-circle text-xl"></i>
+            <span>EXCELLENT! System Correctly Solved (+${xpEarned} XP)</span>
+          </div>
+          <p class="text-xs text-emerald-200/90 font-sans leading-relaxed">
+            All variables satisfy both equations. You have successfully verified Worksheet ${m.worksheetRef}!
+          </p>
+          <div class="flex gap-2 mt-1">
+            <button type="button" onclick="showSolutionModal()" class="text-xs font-mono-math text-emerald-300 underline hover:text-white">
+              View Step-by-Step Algebraic Proof &rarr;
+            </button>
+          </div>
+        `;
+
+        // Check if all complete
+        if (completedMissions.size === missions.length) {
+          setTimeout(() => {
+            triggerVictory();
+          }, 1200);
+        }
+
+      } else {
+        // Mistake
+        playSound('wrong');
+        lives = Math.max(0, lives - 1);
+        updateHUD();
+
+        banner.className = 'p-4 rounded-xl text-sm font-medium bg-rose-950/80 border border-rose-600 text-rose-200 flex flex-col gap-1.5 shadow-lg shadow-rose-950';
+        banner.innerHTML = `
+          <div class="flex items-center gap-2 font-bold text-rose-300">
+            <i class="ph-fill ph-warning-circle text-xl"></i>
+            <span>EQUATION MISMATCH: Check Your Math</span>
+          </div>
+          <p class="text-xs text-rose-200/90 font-sans">
+            One or more values do not balance the linear system. Tap the <strong>Hint</strong> dropdown above to review the system setup.
+          </p>
+        `;
+
+        if (lives === 0) {
+          // Reset lives after a short penalty
+          setTimeout(() => {
+            lives = 3;
+            updateHUD();
+          }, 2500);
+        }
+      }
+    }
+
+    /* =========================================================
+       IN-GAME SCRATCHPAD EVALUATOR
+    ========================================================== */
+    function evalScratch() {
+      const input = document.getElementById('scratchInput');
+      const res = document.getElementById('scratchResult');
+      const raw = input.value.trim();
+      if (!raw) return;
+
+      try {
+        // Safe arithmetic evaluation (digits and basic math operators only)
+        if (!/^[0-9+\-*/().\s]+$/.test(raw)) {
+          res.innerText = "Error: Use only numbers and + - * / ( )";
+          res.className = "text-right text-xs font-mono-math text-rose-400 mt-1";
+          return;
+        }
+        const calculated = Function(`'use strict'; return (${raw})`)();
+        const rounded = Math.round(calculated * 1000) / 1000;
+        res.innerText = `= ${rounded}`;
+        res.className = "text-right text-xs font-mono-math text-emerald-400 mt-1 font-bold";
+        playSound('click');
+      } catch (e) {
+        res.innerText = "Calculation error";
+        res.className = "text-right text-xs font-mono-math text-rose-400 mt-1";
+      }
+    }
+
+    // Support Enter key on scratchpad
+    document.getElementById('scratchInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        evalScratch();
+      }
+    });
+
+    /* =========================================================
+       MODALS & MISSION SELECTION
+    ========================================================== */
+    function openMissionSelect() {
+      const modal = document.getElementById('missionModal');
+      const list = document.getElementById('missionListContainer');
+      list.innerHTML = '';
+
+      missions.forEach((m, idx) => {
+        const isDone = completedMissions.has(idx);
+        const isCurrent = idx === currentMissionIndex;
+        const item = document.createElement('div');
+        item.className = `p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
+          isCurrent 
+            ? 'bg-cyan-950/60 border-cyan-500' 
+            : isDone 
+              ? 'bg-slate-900/90 border-emerald-900/60 hover:border-emerald-500' 
+              : 'bg-slate-900/50 border-slate-800 hover:border-slate-700'
+        }`;
+        item.onclick = () => {
+          loadMission(idx);
+          closeMissionSelect();
+        };
+
+        item.innerHTML = `
+          <div class="flex items-center gap-3">
+            <span class="w-8 h-8 rounded-lg flex items-center justify-center font-mono-math text-xs font-bold ${
+              isDone ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800 text-slate-300'
+            }">
+              ${idx + 1}
+            </span>
+            <div>
+              <div class="font-bold text-sm text-white flex items-center gap-2">
+                <span>${m.title}</span>
+                <span class="text-[10px] text-slate-400 font-mono-math">(${m.worksheetRef})</span>
+              </div>
+              <div class="text-xs text-slate-400">${m.category}</div>
+            </div>
+          </div>
+          <div>
+            ${isDone 
+              ? '<span class="text-xs text-emerald-400 font-bold flex items-center gap-1"><i class="ph-fill ph-check-circle"></i> Done</span>' 
+              : '<span class="text-xs text-slate-500">Unsolved</span>'}
+          </div>
+        `;
+        list.appendChild(item);
+      });
+
+      modal.classList.remove('hidden');
+      playSound('click');
+    }
+
+    function closeMissionSelect() {
+      document.getElementById('missionModal').classList.add('hidden');
+    }
+
+    function showSolutionModal() {
+      const m = missions[currentMissionIndex];
+      document.getElementById('solutionModalTitle').innerText = `${m.title} - Full Walkthrough`;
+      document.getElementById('solutionModalBody').innerHTML = m.walkthrough;
+      document.getElementById('solutionModal').classList.remove('hidden');
+      playSound('click');
+    }
+
+    function closeSolutionModal() {
+      document.getElementById('solutionModal').classList.add('hidden');
+    }
+
+    function triggerVictory() {
+      playSound('victory');
+      document.getElementById('victoryScore').innerText = `${score} XP`;
+      document.getElementById('victoryModal').classList.remove('hidden');
+    }
+
+    function closeVictoryModal() {
+      document.getElementById('victoryModal').classList.add('hidden');
+    }
+
+    function restartGame() {
+      score = 0;
+      lives = 3;
+      completedMissions.clear();
+      closeVictoryModal();
+      loadMission(0);
+    }
+
+    function prevMission() {
+      if (currentMissionIndex > 0) {
+        loadMission(currentMissionIndex - 1);
+      }
+    }
+
+    function nextMission() {
+      if (currentMissionIndex < missions.length - 1) {
+        loadMission(currentMissionIndex + 1);
+      }
+    }
+
+    /* =========================================================
+       INITIALIZATION
+    ========================================================== */
+    window.onload = function() {
+      loadMission(0);
+      
+      // Auto-unlock audio context on first interaction anywhere
+      document.body.addEventListener('click', function unlockSound() {
+        if (!audioReady) initAudio();
+        document.body.removeEventListener('click', unlockSound);
+      }, { once: true });
+    };
+  </script>
+</body>
+</html>
